@@ -1,0 +1,583 @@
+<title>Thoughtful Reading</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{--bg:#ecebe8;--fg:#1d1c1a;--muted:#6b6862;--card:#fbfaf7;--line:#d8d5cf;--frame:#2a2927;--new:#8a5a00}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1b1a19;--fg:#ecebe8;--muted:#a19d96;--card:#262523;--line:#3a3936;--frame:#0d0d0c;--new:#e0a84a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1b1a19;--fg:#ecebe8;--muted:#a19d96;--card:#262523;--line:#3a3936;--frame:#0d0d0c;--new:#e0a84a;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px;margin:0}
+h1{font-size:20px;margin:0 0 4px}
+p.lead{color:var(--muted);margin:0 0 14px;max-width:70ch;line-height:1.5;font-size:14px}
+.row{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+.side{flex:1 1 300px;min-width:0;max-width:62ch;display:flex;flex-direction:column;gap:12px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;line-height:1.5;font-size:14px}
+.panel h2{font-size:15px;margin:0 0 6px}
+.panel .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:1px 7px;border-radius:9px;border:1px solid currentColor;margin-left:6px;vertical-align:2px}
+.panel .tag.new{color:var(--new)}
+.panel .tag.has{color:var(--muted)}
+.jump{display:flex;flex-wrap:wrap;gap:6px}
+.jump button{font:inherit;font-size:13px;padding:6px 10px;border-radius:16px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.jump button:hover{border-color:var(--fg)}
+code{font-size:12.5px;background:var(--bg);padding:1px 4px;border-radius:4px}
+
+/* ---- the Kobo (107 × 142 mm screen) ---- */
+.kobo{width:107mm;height:142mm;max-width:100%;background:#fff;color:#000;border:6mm solid var(--frame);border-radius:5mm;box-sizing:content-box;position:relative;overflow:hidden;font-size:3.6mm;font-family:system-ui,sans-serif;flex:none;user-select:none}
+.layer{position:absolute;inset:0}
+.hidden{display:none!important}
+/* reader page */
+.pg{position:absolute;inset:0;padding:7mm 6mm 8mm;font-family:Georgia,serif;font-size:4mm;line-height:1.55;text-align:justify;hyphens:auto}
+.pg .hd{text-align:center;font-size:2.8mm;color:#555;font-family:system-ui;margin-bottom:3mm}
+.pg .ft{position:absolute;bottom:2.4mm;left:6mm;right:6mm;display:flex;justify-content:space-between;font-size:2.8mm;font-family:system-ui;color:#333}
+.pg .hlt{cursor:pointer;text-decoration:underline dotted #999;text-underline-offset:.8mm}
+.pg mark{background:#d6d6d6;color:#000;text-decoration:none}
+.pg .end{text-align:center;color:#888;margin-top:4mm}
+.tapz{position:absolute;top:12mm;bottom:8mm;width:30%;cursor:pointer;z-index:2}
+.tapz.l{left:0}.tapz.r{right:0}
+.tapz.t{top:0;bottom:auto;height:12mm;left:0;right:0;width:auto}
+/* bottom card */
+.dim{position:absolute;inset:0;background:rgba(255,255,255,.0)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border:.5mm solid #000;border-bottom:0;border-radius:4mm 4mm 0 0;padding:2.5mm 5mm 5mm;display:flex;flex-direction:column;gap:2.6mm;z-index:5}
+.grab{width:12mm;height:1.2mm;background:#999;border-radius:1mm;margin:0 auto .5mm}
+.t{font-weight:700;font-size:4.4mm;display:flex;align-items:center;gap:2mm}
+.t .x{margin-left:auto;font-weight:400;font-size:5mm;cursor:pointer;padding:0 1mm}
+.q{border:.45mm solid #000;border-radius:3mm;padding:2.4mm 3mm;display:flex;flex-direction:column;gap:1.1mm;cursor:pointer}
+.q b{font-size:3.8mm;font-weight:600;line-height:1.35}
+.cat{font-size:2.6mm;letter-spacing:.06em;text-transform:uppercase;color:#666;font-weight:700}
+.quote{border-left:.8mm solid #000;padding-left:2.5mm;font-family:Georgia,serif;font-size:3.4mm;line-height:1.4}
+.quote small{display:block;font-family:system-ui;font-size:2.6mm;color:#666}
+.btns{display:flex;gap:2.5mm}
+.btn{flex:1;min-height:9.5mm;border:.45mm solid #000;border-radius:5mm;display:grid;place-items:center;font-weight:600;cursor:pointer;background:#fff;font-size:3.4mm;text-align:center;padding:0 2mm}
+.btn.p{background:#000;color:#fff}
+.btn.ghost{border-color:#999;color:#777;font-weight:500}
+/* KOReader dialog */
+.dlg{position:absolute;left:3mm;right:3mm;top:14mm;background:#fff;border:.5mm solid #000;border-radius:2mm;z-index:8;display:flex;flex-direction:column}
+.dlg .dt{font-weight:700;font-size:4.2mm;padding:2.5mm 3.5mm;border-bottom:.3mm solid #000}
+.dlg .dd{padding:2.5mm 3.5mm 0;font-size:3.5mm;line-height:1.4;white-space:pre-wrap}
+.dlg textarea{margin:2.5mm 3.5mm;height:24mm;border:.45mm solid #000;border-radius:1mm;font:inherit;font-size:3.6mm;padding:1.5mm 2mm;resize:none;outline:none}
+.dlg .dbr{display:grid;grid-template-columns:1fr 1fr;border-top:.3mm solid #999}
+.dlg .dbr div{padding:2.6mm 1mm;text-align:center;font-size:3.5mm;font-weight:500;cursor:pointer;border-left:.3mm solid #999}
+.dlg .dbr div:nth-child(odd){border-left:0}
+.kb{position:absolute;left:0;right:0;bottom:0;height:40mm;background:#eee;border-top:.3mm solid #999;display:grid;grid-template-columns:repeat(10,1fr);gap:1mm;padding:2mm;box-sizing:border-box;z-index:7}
+.kb i{background:#fff;border-radius:1mm;border:.2mm solid #bbb;font-style:normal;display:grid;place-items:center;font-size:3mm}
+/* full screen pages and menus */
+.full{position:absolute;inset:0;background:#fff;z-index:6;display:flex;flex-direction:column}
+.bar{min-height:10mm;display:flex;align-items:center;gap:2.5mm;padding:0 3.5mm;border-bottom:.4mm solid #000;font-weight:700;font-size:4.1mm;flex:none}
+.bar .sub{font-weight:400;font-size:3mm;color:#555}
+.bar .x{margin-left:auto;font-weight:400;cursor:pointer;font-size:4.6mm;padding:0 1mm}
+.bar .bk{font-weight:400;cursor:pointer;font-size:5mm;padding:0 1mm}
+.bar .pgr{display:flex;align-items:center;gap:1.5mm;font-size:3mm;font-weight:600}
+.bar .pgr span.a{cursor:pointer;font-size:4.5mm;padding:0 1mm}
+.bar .pgr span.off{color:#bbb;cursor:default}
+.mtabs{display:flex;border-bottom:.3mm solid #000;flex:none}
+.mtabs span{flex:1;text-align:center;padding:2mm 0;font-size:4mm;color:#999}
+.mtabs span.on{color:#000;border-bottom:.8mm solid #000}
+.item{min-height:9mm;display:flex;align-items:center;padding:0 4mm;font-size:3.7mm;border-bottom:.2mm solid #ddd;cursor:pointer;gap:2mm;flex:none}
+.item .r{margin-left:auto;color:#555;font-size:3.1mm;text-align:right}
+.item.dis{color:#aaa;cursor:default}
+.item.sep{border-bottom:.45mm solid #999}
+.rad{margin-left:auto;width:3.6mm;height:3.6mm;border:.35mm solid #000;border-radius:50%;display:grid;place-items:center;flex:none}
+.rad.on::after{content:"";width:2mm;height:2mm;border-radius:50%;background:#000}
+.pills{display:flex;flex-wrap:wrap;gap:1.8mm;padding:2.4mm 3.5mm;border-bottom:.3mm solid #000;flex:none}
+.pill{display:inline-grid;place-items:center;min-height:7mm;padding:0 2.8mm;border:.4mm solid #000;border-radius:3.5mm;font-size:3.1mm;font-weight:600;cursor:pointer;background:#fff}
+.pill.on{background:#000;color:#fff}
+.pill.ghost{border-color:#999;color:#777;font-weight:500}
+.body{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.oq{padding:2mm 3.5mm;border-bottom:.2mm solid #ddd;display:flex;flex-direction:column;gap:1mm;cursor:pointer}
+.oq .qq{font-size:3.5mm;font-weight:600;display:flex;gap:2mm;line-height:1.3}
+.oq .qq span{flex:none;width:4mm}
+.oq .a{font-family:Georgia,serif;font-size:3.3mm;color:#222;padding-left:6mm;line-height:1.35}
+.oq .m{font-size:2.7mm;color:#666;padding-left:6mm}
+.oq .quote{margin-left:6mm}
+.empty{padding:6mm 4mm;color:#666;font-size:3.5mm}
+.toast{position:absolute;left:7mm;right:7mm;top:50mm;border:.5mm solid #000;border-radius:2mm;background:#fff;padding:4mm;font-size:3.4mm;line-height:1.45;z-index:9;cursor:pointer}
+.toast .mono{font-family:ui-monospace,monospace;font-size:2.8mm;word-break:break-all}
+/* editor (proposal) */
+.eq{padding:2mm 3.5mm;border-bottom:.2mm solid #ddd;cursor:pointer;display:flex;flex-direction:column;gap:.6mm}
+.eq b{font-size:3.4mm;font-weight:600;line-height:1.3}
+.eq small{font-size:2.7mm;color:#666}
+.form{padding:2.5mm 3.5mm;display:flex;flex-direction:column;gap:2mm;overflow:hidden}
+.form label{font-size:2.8mm;color:#555}
+.form textarea,.form input{border:.45mm solid #000;border-radius:2mm;font:inherit;font-size:3.5mm;padding:1.5mm 2.2mm;outline:none;resize:none;width:100%;box-sizing:border-box;background:#fff;color:#000}
+.form textarea{height:15mm}
+.form .pills{border:0;padding:0}
+.hint{font-size:2.8mm;color:#666;line-height:1.4}
+.foot{display:flex;gap:2mm;padding:2.5mm 3.5mm;border-top:.3mm solid #000;flex:none;flex-wrap:wrap}
+@media (max-width:520px){.kobo{zoom:.82}}
+@media (max-width:430px){.kobo{zoom:.74}}
+.newb{position:absolute;right:2mm;top:2mm;z-index:20;background:#000;color:#fff;font-size:2.5mm;font-weight:700;padding:.6mm 1.8mm;border-radius:2mm;letter-spacing:.04em}
+</style>
+
+<h1>Thoughtful Reading · clickable mockup</h1>
+<p class="lead">The whole plugin on a Kobo-size screen (107 × 142 mm). Tap the right side of the page to turn pages, the left side to go back, and the top edge to open the menu. Dotted lines on a page can be tapped to highlight them. Screens and menu entries marked <b style="color:var(--new)">NEW IN 0.2.0</b> (orange) are planned for the next version: All books, Export all books, Edit questions and questions about your lexicon cards.</p>
+
+<div class="row">
+<div class="kobo" id="kobo">
+  <!-- reader -->
+  <div class="layer" id="reader">
+    <div class="pg" id="page"></div>
+    <div class="tapz t" title="Menu" onclick="openMenu()"></div>
+    <div class="tapz l" title="Previous page" onclick="turn(-1)"></div>
+    <div class="tapz r" title="Next page" onclick="turn(1)"></div>
+  </div>
+  <!-- library (file manager) -->
+  <div class="layer hidden" id="lib">
+    <div class="full" style="z-index:1">
+      <div class="tapz t" title="Menu" onclick="openMenu()" style="z-index:3"></div>
+      <div class="bar" style="justify-content:center;font-size:3.6mm">Library<span class="sub" style="position:absolute;right:4mm">tap the top edge for the menu</span></div>
+      <div class="body" id="libbody"></div>
+    </div>
+  </div>
+  <div class="layer hidden" id="ov"></div>
+  <div class="newb hidden" id="newb">NEW IN 0.2.0</div>
+</div>
+
+<div class="side">
+  <div class="panel" id="note"></div>
+  <div class="panel">
+    <h2>Jump to</h2>
+    <div class="jump">
+      <button onclick="jump(13)">Before end of chapter 1</button>
+      <button onclick="jump(140)">Middle (45 %)</button>
+      <button onclick="jump(287)">Last chapter</button>
+      <button onclick="toReader();openMenu();S.menuPath=['tr'];renderMenu()">Tools › Thoughtful Reading</button>
+      <button onclick="toLibrary()">Library (no book open)</button>
+      <button onclick="S.menuPath=['tr'];showAllBooks()">All books</button>
+      <button onclick="toReader();S.fromAll=false;showList()">Questions &amp; answers</button>
+      <button onclick="S.menuPath=['tr'];showEditor()">Edit questions</button>
+      <button onclick="toReader();S.menuPath=['tr'];showChars()">Characters (lexicon)</button>
+      <button onclick="jump(299)">Last page of the book</button>
+      <button onclick="reset()">Reset the demo</button>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>The book in this demo</h2>
+    <i>In Eisiger Tiefe</i> (Ciaphas Cain, volume 2) · 300 pages, 20 chapters · tags <code>Science Fiction, WH40K</code>. So the series questions, the science-fiction question and the military question apply; the nonfiction and crime questions don't.
+  </div>
+</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- data
+const CAT={plot:"Plot",pov:"Point of view",characters:"Characters",world:"World",themes:"Themes",style:"Style",prediction:"Prediction",personal:"Personal",highlight:"Your highlight",lexicon:"From your lexicon"};
+const SEC={beginning:"Beginning",middle:"Middle",end:"End",chapter:"Chapters",series:"Series"};
+const STD=`beginning|characters||Who are the main protagonists?
+beginning|world||When does the story occur?
+beginning|world||Where does the story take place?
+beginning|pov||Who is the narrator? What does it tell you about the point of view?
+beginning|world||Find elements that characterise the environment and the time.
+beginning|pov||What type of point of view is it?
+beginning|characters||Describe a main character physically and morally.
+beginning|characters||What relationships link the protagonists?
+beginning|plot||What seems to be the goal of the main character, or the plot of the story?
+beginning|style||Is a literary device used to describe a character or a place?
+beginning|themes||Can you already find symbolism in the first chapters?
+beginning|prediction||What do you expect to happen? Note one prediction.
+beginning|characters||Which character do you like least so far, and why?
+beginning|personal||What question does the book make you ask?
+middle|themes||What are the main themes?
+middle|characters||Character arc: has the main protagonist changed? And the other characters?
+middle|characters||How have the other characters influenced the main character or the story?
+middle|plot||Has the main goal or plot shifted since the beginning?
+middle|style||Follow a symbol through the book. Which literary devices are used for it?
+middle|plot||Note a plot twist (if there is one). How did it make the character feel?
+middle|style||How was the plot twist told (cliffhanger, flashback, action scene …), and what did it make you feel?
+middle|characters||Did some background of a character change the story or your feelings towards them?
+middle|world||What are the differences and similarities between this world and ours?
+middle|personal||What keeps you apart from the hero? Social differences? Time?
+middle|prediction||Was your first prediction right? What changed?
+middle|style||Which scene would you cut, and which would you expand?
+middle|personal||Whose side are you on right now?
+end|characters||Has the main character grown as a person?
+end|style||From a literary point of view, is it a "good" ending?
+end|plot||Is everything resolved? If not, why do you think so?
+end|personal||What will you keep from this book?
+end|personal||Rate the book in one sentence. Would you reread it?
+end|characters||Which character would you like to follow in another story?
+end|prediction||Did the ending match your prediction from the beginning?
+chapter|personal||One word for this chapter?
+chapter|plot||What surprised you in this chapter?
+chapter|style||Which line stayed with you?
+series|plot||What changed since the last book?
+series|plot||Which thread from before is still open?
+middle|prediction|crime, krimi, thriller, mystery|Who do you suspect now, and why?
+beginning|world|fantasy, science fiction, science-fiction, sci-fi, sf|Which rule of this world is the most interesting?
+end|themes|military, militär, wh40k, warhammer, war|Was the cost of victory worth it?
+beginning|themes|nonfiction|What is the main question the author wants to answer?
+middle|themes|nonfiction|What is the main argument so far?
+middle|style|nonfiction|Which evidence convinced you, and which did not?
+end|personal|nonfiction|What will you do differently after reading this?
+chapter|themes|nonfiction|Sum up this chapter in one sentence.`;
+const BOOK={title:"In Eisiger Tiefe",total:300,tags:["science fiction","wh40k"],volume:2};
+const STARTS=[1,15,30,44,59,74,89,103,118,133,148,162,177,192,207,222,237,252,266,281]; // chapter first pages
+const FILL=["The shuttle shook as it dropped through the cloud layer, and Cain held on to the strap above his seat.","Jurgen handed him a cup of something hot that smelled faintly of machine oil.","Cain looked at the map again and did not like what he saw.","Colonel Kasteen spoke quickly, as if every second of the briefing cost her money.","Sulla wanted to lead the attack herself, of course.","Lustik grinned and checked his lasgun for the third time.","Jurgen said nothing, which usually meant trouble.","Cain decided, not for the first time, that heroism was overrated.","The shuttle shook as it dropped through the cloud layer, and the commissar held on to the strap above his seat.","Snow covered everything on the ice world, and the wind tore at every coat that was not fastened tight.","His aide handed him a cup of something hot that smelled faintly of machine oil.","Somewhere below the ice, the miners had heard noises that no machine should make.","The colonel spoke quickly, as if every second of the briefing cost her money.","Nobody in the room believed the report, and everybody pretended to.","The lights in the tunnel flickered once, then a second time, and then went out."];
+const HL_LINES={20:"A hero is just someone who ran in the wrong direction.",57:"The cold does not care which side you are on.",141:"Trust the ice less than the enemy.",290:"We came back, and that was enough."};
+
+// other books with answers (sample data); answers by question text
+const OTHER=[
+ {key:"imp",title:"Für den Imperator",author:"Sandy Mitchell",tags:["science fiction","wh40k"],volume:1,last:Date.parse("2026-11-02"),
+  ans:{"Who are the main protagonists?":"Cain, a commissar who mostly wants to survive, and his aide Jurgen.","Who is the narrator? What does it tell you about the point of view?":"Cain himself, years later – he makes himself look worse than he was.","What do you expect to happen? Note one prediction.":"He will try to stay out of the fight and end up in the middle of it.","What are the main themes?":"Fear, duty and luck.","Whose side are you on right now?":"journal","Has the main character grown as a person?":"Not really – and that is the joke.","What will you keep from this book?":"Heroes are made by the stories told about them.","Was the cost of victory worth it?":"For the planet yes, for the regiment no."}},
+ {key:"1984",title:"1984",author:"George Orwell",tags:["roman","dystopie"],volume:0,last:Date.parse("2026-10-20"),
+  ans:{"Where does the story take place?":"London, in Airstrip One, Oceania.","What are the main themes?":"Surveillance, truth and language.","Which line stayed with you?":"Who controls the past controls the future.","What will you keep from this book?":"How words can limit thought.","Did the ending match your prediction from the beginning?":"journal"}},
+ {key:"rose",title:"Der Name der Rose",author:"Umberto Eco",tags:["roman","krimi"],volume:0,last:Date.parse("2026-09-12"),missing:true,count:6}
+];
+// the lexicon of this book (as written by the Book Lexicon plugin)
+const LEX=[
+ {name:"Ciaphas Cain",also:["Cain"],kind:"Person"},
+ {name:"Jurgen",also:[],kind:"Person",rels:[["Friend","Ciaphas Cain"]]},
+ {name:"Sulla",also:[],kind:"Person",rels:[["Member of","Imperiale Garde"],["Enemy","Ciaphas Cain"]]},
+ {name:"Kasteen",also:["Colonel Kasteen"],kind:"Person",rels:[["Friend","Ciaphas Cain"]]},
+ {name:"Lustik",also:[],kind:"Person",role:"Side"},
+ {name:"Imperiale Garde",also:[],kind:"Group"},
+ {name:"Simia Orichalcae",also:[],kind:"Place"}];
+let S;
+function newState(){
+  let id=0;
+  return {page:12,freq:"chapter",per:2,lexQ:true,mentions:{},lexAsked:{},
+    qs:STD.split("\n").map(l=>{const [s,c,t,q]=l.split("|");return {id:"q"+(++id),section:s,category:c,tags:t.split(",").map(x=>x.trim().toLowerCase()).filter(Boolean),text:q};}),
+    answers:{},shown:{},stops:{},sections:{},lastStop:0,hls:[],menuPath:[],listSec:null,listPage:1,editSec:"beginning",mode:"reader",listBook:"cur",other:JSON.parse(JSON.stringify(OTHER))};
+}
+S=newState();
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ---------------------------------------------------------------- rules (as in the plugin)
+function sectionAt(page){const pct=page/BOOK.total;const last=page>=STARTS[STARTS.length-1];if(last||pct>=.9)return"end";if(pct<.2)return"beginning";return"middle";}
+const nonfiction=false;
+function fits(q,book){book=book||BOOK;const wantNf=q.tags.includes("nonfiction");if(wantNf!==nonfiction)return false;const g=q.tags.filter(t=>t!=="nonfiction");if(!g.length)return true;return g.some(x=>book.tags.some(t=>t.includes(x)));}
+// a book with its answers: the open one, or one of the others
+function bookObj(key){
+  if(key==="cur")return {key:"cur",title:BOOK.title,author:"Sandy Mitchell",tags:BOOK.tags,volume:BOOK.volume,answers:S.answers,last:Math.max(0,...Object.values(S.answers).map(a=>a.time||0))};
+  const o=S.other.find(b=>b.key===key);
+  if(!o.answers){o.answers={};let i=0;Object.entries(o.ans||{}).forEach(([t,v])=>{const q=S.qs.find(x=>x.text===t);if(q){i++;o.answers[q.id]={text:v==="journal"?"":v,journal:v==="journal",pct:10+i*11,chapter:"Chapter "+(i*2),page:i*30,q:q.text,cat:q.category,sec:q.section,time:o.last}}})}
+  o.last=Math.max(o.last,...Object.values(o.answers).map(x=>x.time||0));
+  return o;
+}
+function pick(section,n,exclude={}){
+  const pool=sec=>{const fresh=[],seen=[];S.qs.forEach(q=>{if(q.section===sec&&fits(q)&&!S.answers[q.id]&&!exclude[q.id])(S.shown[q.id]?seen:fresh).push(q)});[fresh,seen].forEach(a=>a.sort(()=>Math.random()-.5));return fresh.concat(seen)};
+  const order=[];if(section==="beginning"&&BOOK.volume>1)order.push("series");if(section!=="chapter")order.push(section);order.push("chapter");
+  const cands=order.flatMap(pool);const out=[],cats={},used={};
+  for(const pass of[1,2])for(const q of cands){if(out.length>=n)break;if(!used[q.id]&&(pass===2||!cats[q.category])){out.push(q);used[q.id]=1;cats[q.category]=1}}
+  return out;
+}
+function chapterOf(p){let n=0;STARTS.forEach((s,i)=>{if(s<=p)n=i+1});return n}
+
+// ---------------------------------------------------------------- reader
+function renderPage(){
+  const p=S.page,ch=chapterOf(p),isEnd=STARTS.includes(p+1)||p===BOOK.total;
+  let txt="";for(let i=0;i<4;i++)txt+=FILL[(p*3+i)%FILL.length]+" ";
+  let h="";
+  const line=HL_LINES[p];
+  if(line){const done=S.hls.find(x=>x.page===p);h=done?` <mark>${line}</mark>`:` <span class="hlt" onclick="event.stopPropagation();highlight(${p})" title="Tap to highlight">${line}</span>`;}
+  $("page").innerHTML=`<div class="hd">Chapter ${ch}</div>${txt}${h} ${FILL[(p+5)%FILL.length]}${isEnd?'<div class="end">* * *</div>':""}<div class="ft"><span>${p-STARTS[ch-1]+1}/${(STARTS[ch]||BOOK.total+1)-STARTS[ch-1]}</span><span>${p}/${BOOK.total} · ${Math.floor(p*100/BOOK.total)}%</span></div>`;
+}
+function highlight(p){S.hls.push({id:"h"+p,page:p,text:HL_LINES[p]});renderPage();toast(`Highlighted (p. ${p}).<br><span style="color:#555">At the next stop it can become a question.</span>`)}
+function turn(d){
+  const np=Math.max(1,Math.min(BOOK.total,S.page+d));if(np===S.page)return;
+  const prev=S.page;S.page=np;renderPage();
+  if(np===prev+1)onPageUpdate(np);
+  note("reader");
+}
+function jump(p){closeOv();S.page=p;renderPage();note("reader")}
+function onPageUpdate(page){
+  if(S.freq==="never")return;
+  let isEnd=page>=BOOK.total,n=0,start=1;
+  STARTS.forEach(s=>{if(s<=page){n++;start=s}if(s-1===page)isEnd=true});
+  if(!isEnd||S.stops[start])return;
+  const pct=page/BOOK.total,section=sectionAt(page);
+  let big=false;
+  if(!S.sections[section]&&((section==="beginning"&&pct>=.08)||(section==="middle"&&pct>=.45)||section==="end"))big=true;
+  const go=S.freq==="chapter"||(S.freq==="third"&&(n%3===0||big))||(S.freq==="sections"&&big);
+  if(!go)return;
+  S.stops[start]=true;if(big)S.sections[section]=true;
+  showStop(section,page);
+}
+
+// ---------------------------------------------------------------- overlay helpers
+function ov(html,newb){const o=$("ov");o.innerHTML=html;o.classList.remove("hidden");$("newb").classList.toggle("hidden",!newb)}
+function closeOv(){$("ov").classList.add("hidden");$("ov").innerHTML="";$("newb").classList.add("hidden");cur=null}
+function toast(h,after){const o=$("ov");o.classList.remove("hidden");const t=document.createElement("div");t.className="toast";t.innerHTML=h;t.onclick=()=>{t.remove();if(!o.children.length)closeOv();if(after)after()};o.appendChild(t);setTimeout(()=>{if(t.isConnected)t.click()},3500)}
+let cur=null; // what the card shows
+
+// ---------------------------------------------------------------- lexicon questions (new in 0.2.0)
+function pageText(p){let t="";for(let i=0;i<4;i++)t+=FILL[(p*3+i)%FILL.length]+" ";return t+FILL[(p+5)%FILL.length]}
+// count the names of the person cards in the pages read since the last stop
+function countNames(from,to){
+  for(let p=from;p<=to;p++){const t=" "+pageText(p).replace(/[^\p{L}\s]/gu," ")+" ";
+    LEX.filter(c=>c.kind==="Person").forEach(c=>{
+      // the longest names first, so "Colonel Kasteen" is not counted twice
+      let rest=t,n=0;[c.name,...c.also].sort((a,b)=>b.length-a.length).forEach(nm=>{const parts=rest.split(" "+nm+" ");n+=parts.length-1;rest=parts.join("  ")});
+      if(n)S.mentions[c.name]=(S.mentions[c.name]||0)+n})}
+}
+function roles(){
+  const persons=LEX.filter(c=>c.kind==="Person"),total=persons.reduce((a,c)=>a+(S.mentions[c.name]||0),0);
+  const sorted=[...persons].sort((a,b)=>(S.mentions[b.name]||0)-(S.mentions[a.name]||0));
+  const out={};let mains=0;
+  sorted.forEach(c=>{const m=S.mentions[c.name]||0;let r;
+    if(c.role)r=c.role;else if(!m)r="—";else if(mains<3&&total&&m/total>=.15){r="Main";mains++}else r="Side";
+    out[c.name]={role:r,m,share:total?Math.round(m*100/total):0,fixed:!!c.role}});
+  return out;
+}
+function lexQuestion(section,page){
+  if(!S.lexQ)return null;
+  const pct=page/BOOK.total,R=roles();
+  const main=Object.keys(R).filter(n=>R[n].role==="Main").sort((a,b)=>R[b].m-R[a].m);
+  if(!main.length)return null;
+  if(section!=="end"&&pct>=.4&&!S.lexAsked.mid){
+    const A=main[0],card=LEX.find(c=>c.name===A);
+    // a side character with a relation to the main character, seen in this part
+    const B=LEX.find(c=>c.kind==="Person"&&R[c.name].role==="Side"&&R[c.name].m&&(c.rels||[]).some(r=>r[1]===A));
+    const q=B?{text:`How has the relationship between ${A} and ${B.name} changed?`,lex:A}:{text:`Has ${A} changed since the beginning?`,lex:A};
+    S.lexAsked.mid=Object.assign({id:"lex:mid",category:"lexicon",section:"middle"},q);
+    return S.lexAsked.mid;
+  }
+  if(section==="end"&&!S.lexAsked.end){
+    const mid=S.lexAsked.mid,a=mid&&S.answers["lex:mid"],A=mid?mid.lex:main[0];
+    const q=a&&a.text?{text:`At ${a.pct} % you wrote about ${A}. Was your opinion confirmed, or did it change?`,quote:{text:a.text,page:a.page,own:true}}
+                      :{text:`Did your opinion of ${A} change by the end?`};
+    S.lexAsked.end=Object.assign({id:"lex:end",category:"lexicon",section:"end",lex:A},q);
+    return S.lexAsked.end;
+  }
+  return null;
+}
+function showChars(){
+  const R=roles();
+  let h=`<div class="full"><div class="bar"><span class="bk" onclick="S.menuPath=['tr'];renderMenu()">‹</span>Characters<span class="sub">· from your lexicon</span><span class="x" onclick="closeOv();note(S.mode)">✕</span></div><div class="body">`;
+  const names=Object.keys(R).sort((a,b)=>({Main:0,Side:1,"—":2}[R[a].role]-{Main:0,Side:1,"—":2}[R[b].role])||R[b].m-R[a].m);
+  names.forEach(n=>{const r=R[n];h+=`<div class="item" style="cursor:default"><b style="font-weight:600">${esc(n)}</b><span class="r">${r.m?r.m+" × · "+r.share+" %":"not yet"}</span><span class="pill ${r.role==="Main"?"on":r.role==="Side"?"":"ghost"}" style="min-height:6mm;min-width:12mm;cursor:default">${r.role==="—"?"–":r.role}${r.fixed?" ✎":""}</span></div>`});
+  h+=`<div class="empty" style="font-size:3mm">Counted in the part you have read: the 2–3 most named people are main characters. ✎ = set on the lexicon card (Role: Main / Side).</div></div></div>`;
+  ov(h,true);note("chars");
+}
+
+// ---------------------------------------------------------------- the card
+function showStop(section,page){
+  let n=Math.max(1,Math.min(3,S.per));const list=[];
+  const recent=S.hls.filter(h=>h.page>S.lastStop&&h.page<=page&&!S.answers["hl:"+h.id]);
+  if(recent.length&&n>=2){const h=recent[recent.length-1];list.push({id:"hl:"+h.id,text:"Why did you mark this?",category:"highlight",section:"chapter",quote:h});n--}
+  countNames(S.lastStop+1,page);
+  const lq=lexQuestion(section,page);
+  if(lq){list.push(lq);if(n>=2)n--;else n=0}
+  pick(section,n).forEach(q=>{list.push(q);S.shown[q.id]=true});
+  S.lastStop=page;
+  if(!list.length)return;
+  cur={list,section,page,chapter:"Chapter "+chapterOf(page)};
+  renderCard();note("card");
+}
+function askNow(){closeOv();showStop(sectionAt(S.page),S.page)}
+function renderCard(){
+  const c=cur;
+  let h=`<div class="sheet"><div class="grab"></div><div class="t">✎ ${c.chapter} · ${SEC[c.section]}<span class="x" onclick="closeOv();note(S.mode)">✕</span></div>`;
+  c.list.forEach((q,i)=>{const a=S.answers[q.id];
+    const lab=(q.category==="highlight"?"Your highlight · p. "+q.quote.page:q.category==="lexicon"?"From your lexicon · "+q.lex:CAT[q.category])+(a?"   ✓ "+(a.journal?"journal":"answered"):"");
+    h+=`<div class="q" onclick="answer(${i})"><span class="cat">${esc(lab)}</span><b>${esc(q.text)}</b>${q.quote?`<span class="quote">${q.quote.own?"":"»"}${esc(q.quote.text)}${q.quote.own?`<small>your answer · p. ${q.quote.page}</small>`:"«"}</span>`:""}</div>`});
+  h+=`<div class="btns"><div class="btn" onclick="oneMore()">One more</div><div class="btn" onclick="answerNext()">Answer</div><div class="btn p" onclick="closeOv();note(S.mode)">Keep reading</div></div></div>`;
+  ov(h);
+}
+function oneMore(){const ex={};cur.list.forEach(q=>ex[q.id]=1);const m=pick(cur.section==="chapter"?"chapter":cur.section,1,ex);if(m[0]){cur.list.push(m[0]);S.shown[m[0].id]=1;renderCard()}else toast("No more questions for this part.")}
+function answerNext(){const i=cur.list.findIndex(q=>!S.answers[q.id]);if(i>=0)answer(i)}
+
+// ---------------------------------------------------------------- answering
+let ans=null;
+function answer(i,fromList){
+  const q=fromList?fromList.q:cur.list[i];
+  const old=((fromList&&fromList.book)||S.answers)[q.id]||{};
+  ans={q,book:fromList?fromList.book:null,back:fromList?fromList.back:()=>{renderCard();note("card")},text:old.text||"",hl:old.hl||null,page:fromList?(old.page||S.page):cur.page};
+  const b=$("ov").querySelector(".sheet,.full");ans.base=b?b.outerHTML:"";
+  renderAnswer();
+}
+function renderAnswer(){
+  const a=ans;let desc=esc(a.q.text);
+  if(a.q.quote)desc+="\n»"+esc(a.q.quote.text)+"«";
+  if(a.hl)desc+="\n\n+ »"+esc(a.hl.text)+"« (p. "+a.hl.page+")";
+  ov(a.base+`<div class="dlg"><div class="dt">Answer</div><div class="dd">${desc}</div><textarea id="ta" placeholder="A few words …">${esc(a.text)}</textarea>
+  <div class="dbr"><div onclick="ans.back()">Cancel</div><div onclick="ans.text=$('ta').value;pickHl()">+ Highlight</div><div onclick="store(true)">Noted in my journal</div><div onclick="store(false)">Save</div></div></div>
+  <div class="kb">${"qwertzuiopasdfghjkl⌫⇧yxcvbnm,.".split("").map(k=>`<i>${k}</i>`).join("")}<i style="grid-column:span 10">space</i></div>`);
+  setTimeout(()=>{const t=$("ta");if(t){t.focus();t.selectionStart=t.value.length}},30);
+  note("answer");
+}
+function store(journal){
+  const a=ans,text=journal?($("ta").value):$("ta").value;
+  (a.book||S.answers)[a.q.id]={text,journal,hl:a.hl,page:a.page,pct:Math.floor(a.page*100/BOOK.total),chapter:"Chapter "+chapterOf(a.page),q:a.q.text,cat:a.q.category,sec:a.q.section,quote:a.q.quote,time:Date.now()};
+  a.back();
+}
+function pickHl(){
+  const hls=[...S.hls].sort((x,y)=>y.page-x.page);
+  if(!hls.length){toast("No highlights in this book yet.<br><span style='color:#555'>Tap a dotted line on a page to make one.</span>",renderAnswer);return}
+  let h=`<div class="full"><div class="bar">Add a highlight<span class="x" onclick="renderAnswer()">✕</span></div><div class="body">`;
+  hls.forEach(x=>h+=`<div class="item" style="padding-block:2mm" onclick="ans.hl=S.hls.find(y=>y.id==='${x.id}');renderAnswer()"><span class="quote" style="border:0;padding:0">»${esc(x.text)}«</span><span class="r">p. ${x.page}</span></div>`);
+  ov(h+"</div></div>");note("hl");
+}
+
+// ---------------------------------------------------------------- questions & answers
+function entries(sec,bk){
+  const book=bk||bookObj("cur"),A=book.answers;
+  const out=[],seen={};
+  S.qs.forEach((q,idx)=>{const s=q.section==="series"?"beginning":q.section;if(s===sec&&fits(q,book)&&(q.section!=="series"||book.volume>1)){out.push({q,a:A[q.id],idx});seen[q.id]=1}});
+  if(book.key==="cur")Object.values(S.lexAsked).forEach(q=>{if(!A[q.id]&&q.section===sec&&!seen[q.id]){out.push({q,a:null,idx:9998});seen[q.id]=1}});
+  Object.entries(A).forEach(([id,a])=>{const s=a.cat==="highlight"?"chapter":(a.sec==="series"?"beginning":a.sec);if(!seen[id]&&s===sec)out.push({q:{id,text:a.q,category:a.cat,quote:a.quote},a,idx:9999})});
+  out.sort((x,y)=>(!!y.a)-(!!x.a)||((x.a&&y.a)?(x.a.page-y.a.page):0)||x.idx-y.idx);
+  return out;
+}
+function count(bk){let n=0,d=0;["beginning","middle","end","chapter"].forEach(s=>entries(s,bk).forEach(e=>{n++;if(e.a)d++}));return[d,n]}
+function showList(sec,pg,key){
+  if(key)S.listBook=key;else if(!sec&&!pg)S.listBook="cur";
+  const bk=bookObj(S.listBook),fromAll=S.listBook!=="cur"||S.fromAll;
+  if(!sec)sec=S.listSec||(S.listBook==="cur"&&S.mode==="reader"?sectionAt(S.page):"beginning");S.listSec=sec;S.listPage=pg||1;
+  const [d,n]=count(bk),list=entries(sec,bk),PER=6,pages=Math.max(1,Math.ceil(list.length/PER)),p=Math.min(S.listPage,pages);
+  let h=`<div class="full">${fromAll?`<div class="bar" style="min-height:8mm;font-size:3.3mm"><span class="bk" onclick="showAllBooks()">‹</span>${esc(bk.title)}<span class="sub">${esc(bk.author)}</span>${S.listBook==="cur"&&S.mode==="reader"?"":`<span class="pill" style="margin-left:auto;min-height:6mm;font-size:2.8mm" onclick="openBook('${bk.key}')">Open book</span>`}</div>`:""}<div class="bar">${fromAll?"Questions &amp; answers":"Thoughtful Reading"} <span class="sub">· ${d} of ${n}</span><span class="pgr" style="margin-left:auto"><span class="a ${p>1?"":"off"}" onclick="${p>1?`showList('${sec}',${p-1})`:""}">‹</span>${p}/${pages}<span class="a ${p<pages?"":"off"}" onclick="${p<pages?`showList('${sec}',${p+1})`:""}">›</span></span><span class="x" style="margin-left:2mm" onclick="closeOv();note(S.mode)">✕</span></div>
+  <div class="pills">${["beginning","middle","end","chapter"].map(s=>`<span class="pill ${s===sec?"on":""}" onclick="showList('${s}',1)">${SEC[s]}</span>`).join("")}</div><div class="body">`;
+  if(!list.length)h+=`<div class="empty">No questions here.</div>`;
+  list.slice((p-1)*PER,p*PER).forEach((e,i)=>{
+    const a=e.a;
+    h+=`<div class="oq" onclick="listAnswer('${sec}',${p},'${e.q.id}')"><div class="qq"><span>${a?"✓":"○"}</span>${esc(e.q.text)}</div>`;
+    if(e.q.quote)h+=`<div class="quote">»${esc(e.q.quote.text)}«</div>`;
+    if(a&&a.text)h+=`<div class="a">${esc(a.text)}</div>`;
+    if(a&&a.hl)h+=`<div class="quote">»${esc(a.hl.text)}«<small>p. ${a.hl.page}</small></div>`;
+    h+=`<div class="m">${a?(a.journal?"✓ journal · ":"")+a.chapter+" · "+a.pct+" %":"open – tap to answer"}</div></div>`});
+  ov(h+"</div></div>");note("list");
+}
+function listAnswer(sec,p,id){const bk=bookObj(S.listBook);const e=entries(sec,bk).find(x=>x.q.id===id);answer(0,{q:e.q,book:bk.answers,back:()=>showList(sec,p)})}
+
+// ---------------------------------------------------------------- menu
+function openMenu(){S.menuPath=[];renderMenu();}
+function renderMenu(){
+  const where=S.menuPath[S.menuPath.length-1];
+  const top=`<div class="mtabs"><span>▤</span><span>☰</span><span>⚙</span><span class="on">✎</span><span>🔍</span><span>≡</span></div>`;
+  let h=`<div class="full">${top}`;
+  if(!where){
+    h+=S.mode==="library"
+      ?`<div class="body"><div class="item dis">Calibre …</div><div class="item dis">Wikipedia …</div><div class="item" onclick="S.menuPath.push('tr');renderMenu()">Thoughtful Reading<span class="r">›</span></div><div class="item dis">More tools …</div></div><div class="foot" style="justify-content:center;font-size:3mm;color:#555">Library · Tools</div>`
+      :`<div class="body"><div class="item dis">Bookmarks …</div><div class="item dis">Dictionary lookup …</div><div class="item" onclick="S.menuPath.push('tr');renderMenu()">Thoughtful Reading<span class="r">›</span></div><div class="item dis">More tools …</div></div><div class="foot" style="justify-content:center;font-size:3mm;color:#555">Tools · page 1</div>`;
+    note(S.mode==="library"?"libmenu0":"menu0");
+  }else if(where==="tr"){
+    const [d,n]=count();
+    const P='style="color:var(--new,#8a5a00)"';
+    h+=`<div class="bar"><span class="bk" onclick="S.menuPath.pop();renderMenu()">‹</span>Thoughtful Reading<span class="x" onclick="closeOv();note(S.mode)">✕</span></div><div class="body">`+
+    (S.mode==="library"?`
+    <div class="item" ${P} onclick="showAllBooks()">All books<span class="r" style="color:inherit">${allBooks().length} · new ›</span></div>
+    <div class="item sep" ${P} onclick="exportAll()">Export all books<span class="r" style="color:inherit">new</span></div>`:`
+    <div class="item" onclick="S.fromAll=false;showList()">Questions &amp; answers<span class="r">${d}/${n}</span></div>
+    <div class="item" ${P} onclick="showAllBooks()">All books<span class="r" style="color:inherit">${allBooks().length} · new ›</span></div>
+    <div class="item" onclick="askNow()">Ask me now</div>
+    <div class="item" onclick="exportIt()">Export answers</div>
+    <div class="item sep" ${P} onclick="exportAll()">Export all books<span class="r" style="color:inherit">new</span></div>`)+`
+    <div class="item" onclick="S.menuPath.push('freq');renderMenu()">Show questions: ${FREQ.find(f=>f[0]===S.freq)[1]}<span class="r">›</span></div>
+    <div class="item" onclick="S.menuPath.push('per');renderMenu()">Questions per stop: ${S.per}<span class="r">›</span></div>
+    ${S.mode==="library"?"":`<div class="item" ${P} onclick="showChars()">Characters<span class="r" style="color:inherit">new ›</span></div>`}
+    <div class="item" ${P} onclick="S.lexQ=!S.lexQ;renderMenu()">Questions about lexicon cards<span class="rad ${S.lexQ?"on":""}" style="border-radius:1mm"></span></div>
+    <div class="item" onclick="questionFile()">Question file</div>
+    <div class="item" onclick="showEditor()" style="color:var(--new,#8a5a00)">Edit questions<span class="r" style="color:inherit">new ›</span></div>
+    </div>`;note(S.mode==="library"?"libmenu":"menu");
+  }else if(where==="freq"){
+    h+=`<div class="bar"><span class="bk" onclick="S.menuPath.pop();renderMenu()">‹</span>Show questions<span class="x" onclick="closeOv();note(S.mode)">✕</span></div><div class="body">`+
+      FREQ.map(f=>`<div class="item" onclick="S.freq='${f[0]}';S.menuPath.pop();renderMenu()">${f[1]}<span class="rad ${S.freq===f[0]?"on":""}"></span></div>`).join("")+`</div>`;note("freq");
+  }else if(where==="per"){
+    h+=`<div class="bar"><span class="bk" onclick="S.menuPath.pop();renderMenu()">‹</span>Questions per stop<span class="x" onclick="closeOv();note(S.mode)">✕</span></div><div class="body">`+
+      [1,2,3].map(n=>`<div class="item" onclick="S.per=${n};S.menuPath.pop();renderMenu()">${n}<span class="rad ${S.per===n?"on":""}"></span></div>`).join("")+`</div>`;note("per");
+  }
+  ov(h+"</div>");
+}
+const FREQ=[["chapter","At every chapter end"],["third","Every 3rd chapter"],["sections","Only beginning, middle, end"],["never","Never (only from the menu)"]];
+function questionFile(){toast(`Questions from:<br><span class="mono">plugins/thoughtfulreading.koplugin/questions.txt</span><br><br>Own list: copy questions.txt from the plugin folder to<br><span class="mono">koreader/settings/thoughtfulreading_questions.txt</span><br>and change it there.`);note("file")}
+function exportIt(){
+  const [d]=count();
+  if(!d){toast("No answers yet.");return}
+  toast(`Exported:<br><span class="mono">koreader/clipboard/In Eisiger Tiefe.thoughtful.md</span>`);note("export");
+}
+
+// ---------------------------------------------------------------- all books (proposal)
+function allBooks(){
+  const list=[];
+  if(Object.keys(S.answers).length)list.push(bookObj("cur"));
+  S.other.forEach(o=>list.push(o.missing?o:bookObj(o.key)));
+  return list.sort((a,b)=>b.last-a.last);
+}
+const fmt=t=>{const d=new Date(t);return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."};
+function showAllBooks(){
+  S.fromAll=true;S.listSec=null;
+  const list=allBooks();
+  let h=`<div class="full"><div class="bar"><span class="bk" onclick="S.menuPath=['tr'];renderMenu()">‹</span>All books<span class="sub">· ${list.length}</span><span class="x" onclick="closeOv();note(S.mode)">✕</span></div><div class="body">`;
+  if(!list.length)h+=`<div class="empty">No answers yet.</div>`;
+  list.forEach(b=>{
+    if(b.missing){h+=`<div class="oq" style="cursor:default"><div class="qq" style="color:#999">${esc(b.title)}</div><div class="m" style="padding-left:0;color:#999">${esc(b.author)} · ${b.count} answers · ${fmt(b.last)} · book not found</div></div>`;return}
+    const [d,n]=count(b);
+    h+=`<div class="oq" onclick="showList('beginning',1,'${b.key}')"><div class="qq"><span style="width:auto;flex:1">${esc(b.title)}</span><span style="width:auto;font-weight:400;font-size:3mm;color:#555">${d}/${n} ›</span></div><div class="m" style="padding-left:0">${esc(b.author)} · last answer ${fmt(b.last)}${b.key==="cur"&&S.mode==="reader"?" · open now":""}</div></div>`});
+  h+=`</div><div class="foot"><span class="pill" onclick="exportAll()">Export all books</span></div></div>`;
+  ov(h,true);note("allbooks");
+}
+function openBook(key){
+  if(key==="cur"){toReader();closeOv();note("reader");return}
+  toast("Opens “"+esc(bookObj(key).title)+"”.<br><span style='color:#555'>(In this demo only In Eisiger Tiefe can be read.)</span>");
+}
+function exportAll(){
+  const list=allBooks().filter(b=>!b.missing);
+  if(!list.length){toast("No answers yet.");return}
+  toast(`Exported ${list.length} books:<br><span class="mono">koreader/clipboard/Thoughtful Reading - all books.md</span>`);note("exportall");
+}
+function toLibrary(){S.mode="library";closeOv();$("reader").classList.add("hidden");$("lib").classList.remove("hidden");
+  $("libbody").innerHTML=[["In Eisiger Tiefe","Sandy Mitchell","cur"],["Für den Imperator","Sandy Mitchell","imp"],["1984","George Orwell","1984"],["Dune","Frank Herbert","x"],["Der Herr der Ringe","J. R. R. Tolkien","x"]]
+   .map(b=>`<div class="item" style="min-height:12mm;flex-direction:column;align-items:flex-start;justify-content:center;gap:.5mm" onclick="${b[2]==="cur"?"openBook('cur')":`toast('Only In Eisiger Tiefe can be read in this demo.')`}"><b style="font-size:3.6mm">${b[0]}</b><span style="font-size:2.8mm;color:#666">${b[1]}</span></div>`).join("");
+  note("library")}
+function toReader(){S.mode="reader";$("lib").classList.add("hidden");$("reader").classList.remove("hidden")}
+
+// ---------------------------------------------------------------- question editor (proposal)
+const ESECS=["beginning","middle","end","chapter","series"];
+function showEditor(sec){
+  if(sec)S.editSec=sec;const s=S.editSec;
+  const list=S.qs.filter(q=>q.section===s);
+  let h=`<div class="full"><div class="bar"><span class="bk" onclick="openMenu();S.menuPath=['tr'];renderMenu()">‹</span>Questions<span class="sub">· ${S.qs.length}</span><span class="x" onclick="closeOv();note(S.mode)">✕</span></div>
+  <div class="pills">${ESECS.map(x=>`<span class="pill ${x===s?"on":""}" onclick="showEditor('${x}')">${SEC[x]} ${S.qs.filter(q=>q.section===x).length}</span>`).join("")}</div><div class="body" style="overflow-y:auto">`;
+  list.forEach(q=>h+=`<div class="eq" onclick="editQ('${q.id}')"><b>${esc(q.text)}</b><small>${CAT[q.category]||q.category} · ${q.tags.length?(q.tags.includes("nonfiction")?"nonfiction books":"only: "+esc(q.tags.join(", "))):"all novels"}</small></div>`);
+  if(!list.length)h+=`<div class="empty">No questions in this part.</div>`;
+  h+=`</div><div class="foot"><span class="pill" onclick="editQ(null)">+ New question</span><span class="pill ghost" onclick="S.qs=newState().qs;showEditor()">Standard questions</span></div></div>`;
+  ov(h,true);note("editor");
+}
+let ed=null;
+function editQ(id){
+  const q=id?S.qs.find(x=>x.id===id):{id:null,section:S.editSec,category:"plot",tags:[],text:""};
+  ed={id,section:q.section,category:q.category,text:q.text,books:q.tags.includes("nonfiction")?"nf":(q.tags.length?"tags":"all"),tags:q.tags.filter(t=>t!=="nonfiction").join(", ")};
+  renderEdit();
+}
+function renderEdit(){
+  const e=ed;
+  let h=`<div class="full"><div class="bar"><span class="bk" onclick="showEditor()">‹</span>${e.id?"Edit question":"New question"}<span class="x" onclick="showEditor()">✕</span></div><div class="form">
+  <label>Question</label><textarea id="eqt" oninput="ed.text=this.value">${esc(e.text)}</textarea>
+  <label>Part of the book</label><div class="pills">${ESECS.map(x=>`<span class="pill ${x===e.section?"on":""}" onclick="ed.section='${x}';renderEdit()">${x==="chapter"?"Any chapter":x==="series"?"Series (vol. 2+)":SEC[x]}</span>`).join("")}</div>
+  <label>Category (two questions at one stop come from different categories)</label><div class="pills">${Object.keys(CAT).filter(k=>k!=="highlight").map(k=>`<span class="pill ${k===e.category?"on":""}" onclick="ed.category='${k}';renderEdit()">${CAT[k]}</span>`).join("")}</div>
+  <label>Books</label><div class="pills">${[["all","All novels"],["tags","Only with tags …"],["nf","Nonfiction"]].map(b=>`<span class="pill ${b[0]===e.books?"on":""}" onclick="ed.books='${b[0]}';renderEdit()">${b[1]}</span>`).join("")}</div>
+  ${e.books==="tags"?`<input id="eqg" value="${esc(e.tags)}" placeholder="e.g. crime, thriller" oninput="ed.tags=this.value"><div class="hint">A part of the tag is enough: “fantasy” also matches “Dark Fantasy”.</div>`:""}
+  </div><div class="foot" style="margin-top:auto">${e.id?`<span class="pill ghost" onclick="S.qs=S.qs.filter(q=>q.id!==ed.id);showEditor()">Delete</span>`:""}<span class="pill" style="margin-left:auto" onclick="showEditor()">Cancel</span><span class="pill on" onclick="saveQ()">Save</span></div></div>`;
+  ov(h,true);note("edit");
+}
+function saveQ(){
+  const e=ed;if(!e.text.trim()){toast("The question is empty.");return}
+  const tags=e.books==="nf"?["nonfiction"]:e.books==="tags"?e.tags.split(",").map(x=>x.trim().toLowerCase()).filter(Boolean):[];
+  if(e.id){const q=S.qs.find(x=>x.id===e.id);Object.assign(q,{text:e.text.trim(),section:e.section,category:e.category,tags})}
+  else S.qs.push({id:"n"+Date.now(),text:e.text.trim(),section:e.section,category:e.category,tags});
+  S.editSec=e.section;showEditor();
+}
+
+// ---------------------------------------------------------------- explanations
+const NOTES={
+ reader:["Reading","has","Turn pages with the right side. On the <b>last page of a chapter</b> the plugin stops once: how often depends on <i>Show questions</i> (menu). The three big stops are the first chapter end after 8 %, after 45 % and the last chapter. Tap the top edge for the menu."],
+ card:["Questions at a chapter end","has","<b>New in 0.2.0: questions about your lexicon cards</b>, twice per book. At the first stop after <b>40 %</b> a question about a main character (or his relation to a side character). At the <b>end</b> the same character again, with your answer from the middle: was your opinion confirmed? At most one lexicon question per stop. Off under <i>Questions about lexicon cards</i>.<br><br>Questions of the part of the book you are in (Beginning &lt; 20 %, Middle, End ≥ 90 % or last chapter), from different categories. At the beginning of volume 2+ the series questions come first. A highlight you made since the last stop becomes “Why did you mark this?”. <b>One more</b> adds a question, <b>Answer</b> opens the first open one, <b>Keep reading</b> closes the card."],
+ answer:["Answer","has","KOReader’s text dialog. <b>+ Highlight</b> attaches one of your highlights. <b>Noted in my journal</b> marks it answered without text (for answers on paper). On the Kobo the keyboard opens; here you can type with the PC keyboard."],
+ hl:["Add a highlight","has","All highlights of the book, the newest first."],
+ list:["Questions & answers","has","All questions that fit this book, by part. Answered ones first (in reading order) with your text, highlight, chapter and %. Open ones: tap to answer. Answers stay with the book (in its .sdr folder)."],
+ menu0:["Tools menu","has","The plugin is in KOReader’s Tools tab (page 1 or 2, depending on your other plugins). ZenOS also lists it in its app launcher."],
+ menu:["Tools › Thoughtful Reading","has","Questions &amp; answers of this book (with the count), Ask me now (a stop right here), Export, and the settings. Orange = new in 0.2.0: <b>All books</b>, <b>Export all books</b>, <b>Characters</b>, <b>Questions about lexicon cards</b> (on/off) and <b>Edit questions</b>.<br><br>Both actions (Ask me now, Questions &amp; answers) can also be put on a gesture: ⚙ › Taps and gestures › Gesture manager. The plugin sets no gesture itself."],
+ freq:["Show questions","has","Every chapter end (default), every 3rd chapter (plus the three big stops), only the three big stops, or never (then only <i>Ask me now</i>)."],
+ per:["Questions per stop","has","1 to 3 questions on the card. “One more” adds another one anyway."],
+ file:["Question file","has","Version 0.1.0: the questions are a text file, one per line: <code>part | category | tags | question</code>. You change them on the PC in your own copy, so updates of the plugin don’t overwrite them."],
+ export:["Export","has","A Markdown file per book in <code>koreader/clipboard/</code>: the questions with your answers and highlights, by part of the book."],
+ allbooks:["All books","new","Every book you answered questions for, <b>the last answered first</b>, with the count (answered / questions that fit the book) and the date of the last answer. Tap a book for its <i>Questions &amp; answers</i>; you can still change answers there, and <b>Open book</b> opens it. A book that was deleted or moved stays in the list in grey (“book not found”), because its answers were in its .sdr folder.<br><br>The plugin keeps a small list of these books (title, author, file, count, date) and adds to it on every answer, so this page opens at once. The answers themselves stay with each book."],
+ exportall:["Export all books","new","One Markdown file with every book, the last answered first:<br><code># Thoughtful Reading – all books</code><br><code>## In Eisiger Tiefe — Sandy Mitchell</code><br><code>### Beginning</code> … questions and answers …<br><code>## Für den Imperator — Sandy Mitchell</code> …"],
+ library:["Library","new","In 0.1.0 the plugin only exists inside an open book. Now it also appears in the library’s Tools menu, with <i>All books</i>, <i>Export all books</i> and the settings. Tap the top edge for the menu, or <i>In Eisiger Tiefe</i> to open the book."],
+ libmenu0:["Library · Tools","new","Thoughtful Reading in the library’s Tools menu."],
+ libmenu:["Library · Thoughtful Reading","new","Without a book: All books, Export all books and the settings. “Questions &amp; answers” and “Ask me now” need an open book, so they are only in the book’s menu."],
+ chars:["Characters","new","Only with the Book Lexicon plugin (or your ZenOS fork). The person cards of this book’s lexicon, counted in the part you have <b>already read</b> (no spoilers): the 2–3 most named people with at least 15 % of all mentions are <b>main characters</b>, the others <b>side characters</b>. Early in the book this is still rough. <code>Role: Main</code> or <code>Role: Side</code> on a lexicon card fixes it (✎). Thoughtful Reading only reads the lexicon, it never writes to it."],
+ editor:["Edit questions","new","All questions in the list, by part of the book (the same parts as in the file, plus Series for volume 2 and later). Grey line: category and which books the question is for. Tap one to change it, <b>+ New question</b> for your own, <b>Standard questions</b> brings back the list that comes with the plugin.<br><br>It would save into your own copy, <code>koreader/settings/thoughtfulreading_questions.txt</code>, in the same format, so you can still edit it on the PC."],
+ edit:["Edit a question","new","The text, the part of the book, the category, and for which books: all novels, only books with certain tags (e.g. crime) or nonfiction books. Delete removes it from your list. Answers you already gave stay in the list of the book."]
+};
+function note(k){const n=NOTES[k];if(!n)return;$("note").innerHTML=`<h2>${n[0]}<span class="tag ${n[1]}">${n[1]==="new"?"new in 0.2.0":"in 0.1.0"}</span></h2>${n[2]}`}
+function reset(){S=newState();toReader();closeOv();renderPage();note("reader")}
+renderPage();note("reader");
+</script>

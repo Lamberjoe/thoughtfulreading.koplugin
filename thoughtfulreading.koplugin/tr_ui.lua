@@ -56,6 +56,30 @@ function M.pill(o)
     return M.tap(frame, w, h, o.callback)
 end
 
+--- Pills that wrap into rows. list: { {text, on, ghost, callback} }
+function M.pillsWrap(list, w, size)
+    local gap = s(8)
+    local vg = VerticalGroup:new{ align = "left" }
+    local row, used = HorizontalGroup:new{ align = "center" }, 0
+    for _i, o in ipairs(list) do
+        local p = M.pill{ text = o.text, on = o.on, size = size or 15, callback = o.callback }
+        local pw = p:getSize().w
+        if used > 0 and used + gap + pw > w then
+            vg[#vg + 1] = row
+            vg[#vg + 1] = VerticalSpan:new{ width = gap }
+            row, used = HorizontalGroup:new{ align = "center" }, 0
+        end
+        if used > 0 then
+            row[#row + 1] = HorizontalSpan:new{ width = gap }
+            used = used + gap
+        end
+        row[#row + 1] = p
+        used = used + pw
+    end
+    if #row > 0 then vg[#vg + 1] = row end
+    return vg
+end
+
 --- A row of pills that share the width.
 function M.buttonRow(buttons, w)
     local gap = s(10)
@@ -95,7 +119,7 @@ function M.quote(hl, w)
     local bar = s(4)
     local tw = w - bar - s(10)
     local vg = VerticalGroup:new{ align = "left",
-        TextBoxWidget:new{ text = "»" .. hl.text .. "«", width = tw,
+        TextBoxWidget:new{ text = hl.own and hl.text or ("»" .. hl.text .. "«"), width = tw,
             face = Font:getFace("NotoSerif-Regular.ttf", 16) },
     }
     if hl.where then
@@ -186,6 +210,7 @@ local Page = InputContainer:extend{
     covers_fullscreen = true,
     title = "",
     subtitle = nil,
+    action = nil,      -- { text, callback }: a pill in the header (e.g. "Open book")
     tabs = nil,        -- { {text, on, callback} }
     items = nil,       -- function(w) -> list of widgets
     empty = "",
@@ -208,18 +233,11 @@ function Page:render()
     local vg = VerticalGroup:new{ align = "left" }
     -- header: title · subtitle ........ ‹ n/m › ✕
     local head = HorizontalGroup:new{ align = "center" }
-    local title = TextWidget:new{ text = self.title, face = Font:getFace("cfont", 22), bold = true }
-    head[#head + 1] = title
-    local used = title:getSize().w
-    if self.subtitle then
-        local st = TextWidget:new{ text = "  · " .. self.subtitle, face = Font:getFace("cfont", 15), fgcolor = GREY }
-        head[#head + 1] = st
-        used = used + st:getSize().w
-    end
     local right = HorizontalGroup:new{ align = "center" }
     local nav = mm(9)
     -- the list is built first: the number of pages goes into the header
-    local list_h = sh - mm(9) - s(30) - (self.tabs and (mm(9) + s(20)) or 0) - s(20)
+    local tabs_h = self.tabs and (M.pillsWrap(self.tabs, w, 15):getSize().h + s(10)) or 0
+    local list_h = sh - mm(9) - s(30) - tabs_h - s(30)
     local pages = self:paginate(w, list_h)
     self.n_pages = #pages
     self.page = math.max(1, math.min(self.page, #pages))
@@ -235,17 +253,30 @@ function Page:render()
     end
     right[#right + 1] = M.tap(CenterContainer:new{ dimen = Geom:new{ w = nav, h = nav },
         TextWidget:new{ text = "✕", face = Font:getFace("cfont", 22) } }, nav, nav, function() self:onClose() end)
+    if self.action then
+        table.insert(right, 1, HorizontalSpan:new{ width = s(10) })
+        table.insert(right, 1, M.pill{ text = self.action.text, size = 14, callback = self.action.callback })
+    end
+    local room = w - right:getSize().w - s(10)
+    local st
+    if self.subtitle then
+        st = TextWidget:new{ text = "  · " .. self.subtitle, face = Font:getFace("cfont", 15), fgcolor = GREY,
+            max_width = math.floor(room * 0.4) }
+    end
+    local title = TextWidget:new{ text = self.title, face = Font:getFace("cfont", 22), bold = true,
+        max_width = room - (st and st:getSize().w or 0) }
+    head[#head + 1] = title
+    local used = title:getSize().w
+    if st then
+        head[#head + 1] = st
+        used = used + st:getSize().w
+    end
     head[#head + 1] = HorizontalSpan:new{ width = math.max(0, w - used - right:getSize().w) }
     head[#head + 1] = right
     vg[#vg + 1] = LeftContainer:new{ dimen = Geom:new{ w = w, h = mm(9) }, head }
     vg[#vg + 1] = VerticalSpan:new{ width = s(10) }
     if self.tabs then
-        local tabs = HorizontalGroup:new{ align = "center" }
-        for i, t in ipairs(self.tabs) do
-            if i > 1 then tabs[#tabs + 1] = HorizontalSpan:new{ width = s(10) } end
-            tabs[#tabs + 1] = M.pill{ text = t.text, on = t.on, size = 15, callback = t.callback }
-        end
-        vg[#vg + 1] = tabs
+        vg[#vg + 1] = M.pillsWrap(self.tabs, w, 15)
         vg[#vg + 1] = VerticalSpan:new{ width = s(10) }
     end
     vg[#vg + 1] = LineWidget:new{ dimen = Geom:new{ w = w, h = s(2) }, background = Blitbuffer.COLOR_BLACK }

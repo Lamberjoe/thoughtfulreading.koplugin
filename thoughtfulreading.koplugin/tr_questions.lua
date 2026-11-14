@@ -5,6 +5,12 @@ local M = {}
 
 M.SECTIONS = { "beginning", "middle", "end", "chapter" }
 M.SECTION_TITLE = { beginning = "Beginning", middle = "Middle", ["end"] = "End", chapter = "Chapters", series = "Series" }
+-- the parts a question can belong to (the question file and the editor)
+M.EDIT_SECTIONS = { "beginning", "middle", "end", "chapter", "series" }
+M.CATEGORIES = { "plot", "pov", "characters", "world", "themes", "style", "prediction", "personal" }
+M.CATEGORY_TITLE = { plot = "Plot", pov = "Point of view", characters = "Characters", world = "World",
+    themes = "Themes", style = "Style", prediction = "Prediction", personal = "Personal",
+    highlight = "Your highlight", lexicon = "From your lexicon" }
 
 -- Tags that mark a book as nonfiction: a part of the tag is enough for the
 -- first list, the whole tag must match for the second ("Science-Fiction" and
@@ -41,6 +47,31 @@ function M.parse(text)
         end
     end
     return out
+end
+
+--- The question file for a list (one line per question, by part of the book).
+function M.serialize(list)
+    local out = {
+        "# Thoughtful Reading – questions",
+        "# One question per line:  part | category | tags | question",
+        "#   part:     beginning, middle, end, chapter (any chapter end), series (start of volume 2 and later)",
+        "#   category: plot, pov, characters, world, themes, style, prediction, personal",
+        "#             (two questions at one stop come from different categories)",
+        "#   tags:     empty = all novels; e.g. \"crime, thriller\" = only books with one of these tags",
+        "#             (a part of the tag is enough); \"nonfiction\" = only nonfiction books",
+        "",
+    }
+    for _i, sec in ipairs(M.EDIT_SECTIONS) do
+        local any = false
+        for _j, q in ipairs(list) do
+            if q.section == sec then
+                if not any then out[#out + 1] = "" out[#out + 1] = "# " .. (M.SECTION_TITLE[sec] or sec) any = true end
+                out[#out + 1] = sec .. "|" .. (q.category or "") .. "|" .. table.concat(q.tags or {}, ", ") .. "|"
+                    .. tostring(q.text):gsub("[\r\n|]+", " ")
+            end
+        end
+    end
+    return table.concat(out, "\n") .. "\n"
 end
 
 function M.load(paths)
