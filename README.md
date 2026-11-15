@@ -2,7 +2,7 @@
 
 Book club style questions at the end of chapters, fully offline. Answer in a few words, attach one of your highlights, or just tick *Noted in my journal*.
 
-> Private work in progress. Made for ZenOS stable, but works in plain KOReader too.
+> Made for ZenOS, but works in plain KOReader too. Questions and feedback are welcome under [Issues](../../issues).
 
 ## Features
 
@@ -41,3 +41,7 @@ Copy the folder `thoughtfulreading.koplugin` into `koreader/plugins/` and restar
 - **0.2.0:** All books (also in the library), Export all books, Edit questions, lexicon questions and Characters, two-page view fix
 - **0.2.1:** chapter stops stay right after a font or margin change, names counted faster, texts translatable, finds a lexicon that stays with a renamed book
 - **0.1.0:** questions at chapter ends, highlight questions, answers, list per book, export
+
+## License
+
+GPL-3.0, like ZenOS.
