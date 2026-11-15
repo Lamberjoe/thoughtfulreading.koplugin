@@ -39,4 +39,5 @@ Copy the folder `thoughtfulreading.koplugin` into `koreader/plugins/` and restar
 ## Versions
 
 - **0.2.0:** All books (also in the library), Export all books, Edit questions, lexicon questions and Characters, two-page view fix
+- **0.2.1:** chapter stops stay right after a font or margin change, names counted faster, texts translatable, finds a lexicon that stays with a renamed book
 - **0.1.0:** questions at chapter ends, highlight questions, answers, list per book, export

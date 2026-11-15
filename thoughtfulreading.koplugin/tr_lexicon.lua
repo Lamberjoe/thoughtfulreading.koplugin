@@ -1,5 +1,5 @@
 -- Thoughtful Reading: the book's lexicon, read only.
--- The Book Lexicon plugin (and the lexicon of the ZenOS fork) keep one file per book:
+-- A book lexicon is one file per book:
 --   <koreader>/lexicon/Books/<Author - Title>/lexicon.md   (German: Bücher/)
 -- Thoughtful Reading never writes to it. Without that file there are simply no
 -- lexicon questions.
@@ -10,7 +10,7 @@ local M = {}
 local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
 local function clean(s) return (tostring(s or ""):gsub("\194\173", "")) end   -- soft hyphens
 
--- words after "Kind:" (as in Book Lexicon)
+-- words after "Kind:" (as in the book lexicon)
 local KIND = {
     person = "Person", people = "Person", figur = "Person", character = "Person",
     object = "Object", gegenstand = "Object", item = "Object", thing = "Object",
@@ -24,7 +24,7 @@ local ALSO = { also = true, auch = true, ["other names"] = true, ["weitere namen
 local function role(v)
     v = trim(v):lower()
     if v:find("^main") or v:find("^haupt") or v:find("^protagonist") then return "Main" end
-    if v:find("^side") or v:find("^neben") or v:find("^minor") then return "Side" end
+    if v:find("^side") or v:find("^neben") or v:find("^minor") or v:find("^supporting") then return "Side" end
 end
 
 --- Cards: { { name, kind, also = {...}, role = "Main"|"Side"|nil, rels = { {type, target} } } }
@@ -68,7 +68,7 @@ local function safeName(s)
     return s ~= "" and s or "_"
 end
 
---- "Author - Title" as Book Lexicon names the folder.
+--- "Author - Title", the name of the lexicon folder.
 function M.key(props, file)
     props = props or {}
     local title = clean(props.display_title or props.title or "")
@@ -118,26 +118,36 @@ function M.words(text)
     return " " .. text .. " "
 end
 
-local function escape(s) return (s:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")) end
-
---- Count the person cards in a text; adds to tally[name]. Longer names first,
---- so "Ciaphas Cain" is not counted again as "Cain". German genitive "Cains" counts.
+--- Count the person cards in a text; adds to tally[name]. One pass over the words: the
+--- longest name at a word wins, so "Ciaphas Cain" is not counted again as "Cain".
+--- A trailing "s" counts too (German genitive "Cains").
 function M.count(text, cards, tally)
-    local t = M.words(text)
-    local names = {}
+    local names, longest = {}, 1
     for _i, c in ipairs(M.persons(cards)) do
         for _j, n in ipairs({ c.name, unpack(c.also) }) do
             n = trim(M.words(n))
-            if #n >= 2 then names[#names + 1] = { n = n, card = c.name } end
+            if #n >= 2 then
+                local size = select(2, n:gsub(" ", "")) + 1
+                if names[n] == nil then names[n] = c.name end
+                if size > longest then longest = size end
+            end
         end
     end
-    table.sort(names, function(a, b) return #a.n > #b.n end)
-    for _i, x in ipairs(names) do
-        local p = escape(x.n)
-        local k
-        -- the space after the name stays, so "Sulla Sulla" counts twice
-        t, k = t:gsub(" " .. p .. "s?%f[ ]", " ")
-        if k > 0 then tally[x.card] = (tally[x.card] or 0) + k end
+    local words = {}
+    for w in M.words(text):gmatch("%S+") do words[#words + 1] = w end
+    local i = 1
+    while i <= #words do
+        local step = 1
+        for size = math.min(longest, #words - i + 1), 1, -1 do
+            local n = table.concat(words, " ", i, i + size - 1)
+            local card = names[n] or (n:sub(-1) == "s" and names[n:sub(1, -2)])
+            if card then
+                tally[card] = (tally[card] or 0) + 1
+                step = size
+                break
+            end
+        end
+        i = i + step
     end
     return tally
 end

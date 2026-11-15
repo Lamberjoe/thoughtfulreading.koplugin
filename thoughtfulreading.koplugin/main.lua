@@ -34,6 +34,7 @@ local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local lfs = require("libs/libkoreader-lfs")
 local logger = require("logger")
 local _ = require("gettext")
+local T = require("ffi/util").template
 
 local Q = require("tr_questions")
 local UI = require("tr_ui")
@@ -52,7 +53,19 @@ local FREQ = {
     { id = "never", text = _("Never (only from the menu)") },
 }
 
-local CAT_TITLE = Q.CATEGORY_TITLE
+-- titles shown in the UI and the export (the question file keeps the English names)
+local function section_title(sec)
+    local t = { beginning = _("Beginning"), middle = _("Middle"), ["end"] = _("End"), chapter = _("Chapters"),
+        series = _("Series") }
+    return t[sec] or sec
+end
+
+local CAT_TITLE = setmetatable({}, { __index = function(_t, cat)
+    local t = { plot = _("Plot"), pov = _("Point of view"), characters = _("Characters"), world = _("World"),
+        themes = _("Themes"), style = _("Style"), prediction = _("Prediction"), personal = _("Personal"),
+        highlight = _("Your highlight"), lexicon = _("From your lexicon") }
+    return t[cat]
+end })
 
 local Plugin = WidgetContainer:extend{
     name = "thoughtfulreading",
@@ -190,6 +203,12 @@ function Plugin:onReaderReady()
     self._ticks = nil
 end
 
+-- A new layout (font, margins, rotation) or table of contents: the chapter pages change.
+function Plugin:onDocumentRerendered()
+    self._ticks, self._last_page = nil, nil
+end
+Plugin.onUpdateToc = Plugin.onDocumentRerendered
+
 function Plugin:onCloseDocument()
     self:save()
     self._state, self._book, self._lex = nil, nil, nil
@@ -252,14 +271,15 @@ function Plugin:onPageUpdate(page)
     local total = self.ui.document:getPageCount()
     local last = math.min(page + vis - 1, total)      -- the right page in the two-page view
     local starts = self:chapterStarts()
-    local is_end, n_chapter, start = last >= total, 0, 1
+    local is_end, n_chapter = last >= total, 0
     for _i, p in ipairs(starts) do
-        if p <= page then n_chapter = n_chapter + 1 start = p end
+        if p <= page then n_chapter = n_chapter + 1 end
         if p - 1 >= page and p - 1 <= last then is_end = true end
     end
     if not is_end then return end
     local st = self:state()
-    local key = tostring(start)
+    -- by chapter number: stays right when a new layout moves the pages
+    local key = "chapter " .. n_chapter
     if st.stops[key] then return end
     local pct = last / math.max(1, total)
     local section = Q.sectionAt(pct, last >= total)
@@ -292,7 +312,7 @@ function Plugin:highlights()
                 page = ok and p or nil
             end
             out[#out + 1] = { text = a.text:gsub("%s+", " "), page = page, id = a.datetime or a.pos0 or a.text,
-                where = page and ("p. " .. page) or nil }
+                where = page and T(_("p. %1"), page) or nil }
         end
     end
     return out
@@ -301,7 +321,7 @@ end
 -- highlights made in the pages since the last stop
 function Plugin:recentHighlights(page)
     local st = self:state()
-    local from = st.last_stop_page or 0
+    local from = math.floor((st.last_stop or 0) * self.ui.document:getPageCount())
     local out = {}
     for _i, h in ipairs(self:highlights()) do
         if h.page and h.page > from and h.page <= page and not st.answers["hl:" .. tostring(h.id)] then
@@ -316,7 +336,10 @@ end
 --- The cards of the open book's lexicon ({} without one); read again when the file changed.
 function Plugin:lexCards()
     if not self:inReader() then return {} end
-    local path = Lex.path(self.ui.doc_props, self.ui.document.file)
+    -- the folder the book lexicon remembered for this book, else the one named after the book
+    local dir = self.ui.doc_settings and self.ui.doc_settings:readSetting("zen_lexicon_dir")
+    local path = dir and lfs.attributes(dir .. "/lexicon.md", "mode") == "file" and dir .. "/lexicon.md"
+        or Lex.path(self.ui.doc_props, self.ui.document.file)
     local mtime = path and lfs.attributes(path, "modification")
     if self._lex and self._lex.path == path and self._lex.mtime == mtime then return self._lex.cards end
     local ok, cards = pcall(Lex.load, path)
@@ -337,7 +360,9 @@ function Plugin:countNames(page)
     local st = self:state()
     local total = doc:getPageCount()
     page = math.min(page, total)
-    local from = math.max((st.counted_to or 0) + 1, page - MAX_COUNT_PAGES + 1)
+    local counted = st.counted_to or 0
+    if counted > 1 then counted = counted / total end -- a page number (older answers)
+    local from = math.max(math.floor(counted * total) + 1, page - MAX_COUNT_PAGES + 1)
     if from > page then return end
     local ok, text = pcall(function()
         local x0 = doc:getPageXPointer(from)
@@ -350,7 +375,8 @@ function Plugin:countNames(page)
     else
         logger.warn("Thoughtful Reading: counting names", text)
     end
-    st.counted_to = page
+    -- as a share of the book: stays right when a new layout changes the page count
+    st.counted_to = page / total
 end
 
 --- The people of the lexicon with their roles (most named first).
@@ -374,8 +400,8 @@ function Plugin:lexQuestion(section, pct)
         for _i, e in ipairs(self:characters()) do
             if e.role == "Side" and e.count > 0 and Lex.related(a.card, e.card) then b = e break end
         end
-        local text = b and string.format("How has the relationship between %s and %s changed?", a.name, b.name)
-            or string.format("Has %s changed since the beginning?", a.name)
+        local text = b and T(_("How has the relationship between %1 and %2 changed?"), a.name, b.name)
+            or T(_("Has %1 changed since the beginning?"), a.name)
         st.lex.mid = { id = "lex:mid", text = text, name = a.name, section = "middle" }
         return st.lex.mid
     end
@@ -385,11 +411,12 @@ function Plugin:lexQuestion(section, pct)
         local name = mid and mid.name or mains[1].name
         local q = { id = "lex:end", name = name, section = "end" }
         if ans and ans.text and ans.text ~= "" then
-            q.text = string.format("At %d %% you wrote about %s. Was your opinion confirmed, or did it change?",
-                ans.pct or 0, name)
-            q.quote = { text = ans.text, where = ans.page and ("your answer · p. " .. ans.page) or "your answer", own = true }
+            q.text = T(_("At %1 you wrote about %2. Was your opinion confirmed, or did it change?"),
+                (ans.pct or 0) .. " %", name)
+            q.quote = { text = ans.text, where = ans.page and T(_("your answer · p. %1"), ans.page) or _("your answer"),
+                own = true }
         else
-            q.text = string.format("Did your opinion of %s change by the end?", name)
+            q.text = T(_("Did your opinion of %1 change by the end?"), name)
         end
         st.lex["end"] = q
         return q
@@ -430,13 +457,15 @@ function Plugin:showStop(section, page)
     local hls = self:recentHighlights(page)
     if #hls > 0 and n >= 2 then
         local h = hls[#hls]
-        list[1] = { id = "hl:" .. tostring(h.id), text = "Why did you mark this?", category = "highlight",
-            section = "chapter", label = "YOUR HIGHLIGHT" .. (h.where and (" · " .. h.where) or ""),
+        local label = CAT_TITLE.highlight:upper()
+        list[1] = { id = "hl:" .. tostring(h.id), text = _("Why did you mark this?"), category = "highlight",
+            section = "chapter", label = h.where and T("%1 · %2", label, h.where) or label,
             quote = { text = h.text, where = nil } }
         n = n - 1
     end
     -- at most one question about the lexicon
     local ok, err = pcall(function()
+        if not settings().lexicon or (st.lex.mid and (section ~= "end" or st.lex["end"])) then return end
         self:countNames(page)
         local total = self.ui.document:getPageCount()
         local lq = self:lexQuestion(section, page / math.max(1, total))
@@ -452,7 +481,7 @@ function Plugin:showStop(section, page)
             st.shown[q.id] = true
         end
     end
-    st.last_stop_page = page
+    st.last_stop = page / math.max(1, self.ui.document:getPageCount())
     self:save()
     -- a lexicon question asked: the count in All books changes
     local book = self:currentBook()
@@ -464,7 +493,7 @@ end
 
 function Plugin:showCard(list, section, chapter, page)
     local st = self:state()
-    local title = "✎ " .. (chapter and (chapter .. " · ") or "") .. (Q.SECTION_TITLE[section] or "")
+    local title = "✎ " .. (chapter and (chapter .. " · ") or "") .. (section_title(section) or "")
     UI.sheet{
         title = title,
         build = function(sheet, w)
@@ -472,7 +501,7 @@ function Plugin:showCard(list, section, chapter, page)
             for _i, q in ipairs(list) do
                 local a = st.answers[q.id]
                 local qq = { text = q.text, quote = q.quote,
-                    label = q.label .. (a and "   ✓ " .. (a.journal and "journal" or "answered") or "") }
+                    label = q.label .. (a and "   ✓ " .. (a.journal and _("journal") or _("answered")) or "") }
                 vg[#vg + 1] = UI.questionBox(qq, w, function()
                     self:answer(q, { chapter = chapter, page = page, done = function() sheet:refresh() end })
                 end)
@@ -602,7 +631,8 @@ function Plugin:pickHighlight(done)
     end
     for _i, h in ipairs(hls) do
         local t = h.text
-        if #t > 120 then t = t:sub(1, 117) .. "…" end
+        local chars = require("util").splitToChars(t)
+        if #chars > 120 then t = table.concat(chars, "", 1, 117) .. "…" end
         items[#items + 1] = { text = "»" .. t .. "«", mandatory = h.where, callback = function()
             finish(h)
             UIManager:close(menu)
@@ -693,7 +723,7 @@ function Plugin:entryWidget(e, w, on_tap)
     local meta
     if e.a then
         local parts = {}
-        if e.a.journal then parts[#parts + 1] = "✓ journal" end
+        if e.a.journal then parts[#parts + 1] = "✓ " .. _("journal") end
         if e.a.chapter then parts[#parts + 1] = e.a.chapter end
         if e.a.pct then parts[#parts + 1] = e.a.pct .. " %" end
         if not e.a.chapter and not e.a.pct and e.a.time then parts[#parts + 1] = os.date("%d.%m.%Y", e.a.time) end
@@ -736,7 +766,7 @@ function Plugin:showList(section, o)
     local done, n = self:count(book)
     local tabs = {}
     for _i, sec in ipairs(Q.SECTIONS) do
-        tabs[#tabs + 1] = { text = Q.SECTION_TITLE[sec], on = sec == section, callback = function() reopen(sec) end }
+        tabs[#tabs + 1] = { text = section_title(sec), on = sec == section, callback = function() reopen(sec) end }
     end
     local action
     if o.from_all and not book.open then
@@ -744,7 +774,7 @@ function Plugin:showList(section, o)
     end
     page_widget = UI.page{
         title = o.from_all and firstLine(book.info.title) or _("Thoughtful Reading"),
-        subtitle = done .. " of " .. n,
+        subtitle = T(_("%1 of %2"), done, n),
         action = action,
         tabs = tabs,
         empty = _("No questions here."),
@@ -818,10 +848,10 @@ function Plugin:showAllBooks()
                 if e.author and e.author ~= "" then parts[#parts + 1] = e.author end
                 if b.found then
                     parts[#parts + 1] = (e.done or 0) .. "/" .. (e.n or 0)
-                    if e.last and e.last > 0 then parts[#parts + 1] = _("last answer ") .. os.date("%d.%m.%Y", e.last) end
+                    if e.last and e.last > 0 then parts[#parts + 1] = T(_("last answer %1"), os.date("%d.%m.%Y", e.last)) end
                     if self:inReader() and self.ui.document.file == b.file then parts[#parts + 1] = _("open now") end
                 else
-                    parts[#parts + 1] = (e.done or 0) .. _(" answers")
+                    parts[#parts + 1] = T(_("%1 answers"), e.done or 0)
                     parts[#parts + 1] = _("book not found")
                 end
                 vg[#vg + 1] = VerticalSpan:new{ width = UI.s(2) }
@@ -830,8 +860,8 @@ function Plugin:showAllBooks()
                 vg[#vg + 1] = VerticalSpan:new{ width = UI.s(8) }
                 out[#out + 1] = UI.tap(vg, w, vg:getSize().h, function()
                     if not b.found then
-                        UIManager:show(InfoMessage:new{ text = _("This book was not found:") .. "\n" .. b.file
-                            .. "\n\n" .. _("Its answers were kept with the book (in its .sdr folder).") })
+                        UIManager:show(InfoMessage:new{ text = T(_("This book was not found:\n%1\n\nIts answers were kept with the book (in its .sdr folder)."),
+                            b.file) })
                         return
                     end
                     local book = self:bookByFile(b.file)
@@ -898,7 +928,7 @@ function Plugin:writeQuestions(list)
     local path = self:userQuestionsPath()
     local f = io.open(path, "w")
     if not f then
-        UIManager:show(InfoMessage:new{ text = _("Could not write ") .. path })
+        UIManager:show(InfoMessage:new{ text = T(_("Could not write %1"), path) })
         return false
     end
     f:write(Q.serialize(list))
@@ -911,8 +941,8 @@ local function booksText(q)
     for _i, t in ipairs(q.tags or {}) do
         if t == "nonfiction" then return "nonfiction books" end
     end
-    if q.tags and #q.tags > 0 then return "only: " .. table.concat(q.tags, ", ") end
-    return "all novels"
+    if q.tags and #q.tags > 0 then return T(_("only: %1"), table.concat(q.tags, ", ")) end
+    return _("all novels")
 end
 
 function Plugin:showEditor(section)
@@ -928,7 +958,7 @@ function Plugin:showEditor(section)
     for _i, sec in ipairs(Q.EDIT_SECTIONS) do
         local n = 0
         for _j, q in ipairs(list) do if q.section == sec then n = n + 1 end end
-        tabs[#tabs + 1] = { text = Q.SECTION_TITLE[sec] .. " " .. n, on = sec == section, callback = function() reopen(sec) end }
+        tabs[#tabs + 1] = { text = section_title(sec) .. " " .. n, on = sec == section, callback = function() reopen(sec) end }
     end
     page_widget = UI.page{
         title = _("Questions"),
@@ -1050,7 +1080,7 @@ function Plugin:editQuestion(q, section, done)
     local function delete()
         local ConfirmBox = require("ui/widget/confirmbox")
         UIManager:show(ConfirmBox:new{
-            text = _("Delete this question?") .. "\n\n" .. q.text,
+            text = T(_("Delete this question?\n\n%1"), q.text),
             ok_text = _("Delete"),
             ok_callback = function()
                 local out = {}
@@ -1081,7 +1111,7 @@ function Plugin:editQuestion(q, section, done)
             local secs = {}
             for _i, sec in ipairs(Q.EDIT_SECTIONS) do
                 local text = sec == "chapter" and _("Any chapter") or sec == "series" and _("Series (vol. 2+)")
-                    or Q.SECTION_TITLE[sec]
+                    or section_title(sec)
                 secs[#secs + 1] = { text = text, on = d.section == sec,
                     callback = function() d.section = sec page_widget:refresh() end }
             end
@@ -1139,14 +1169,14 @@ function Plugin:exportLines(book, h)
                     part[#part + 1] = ""
                 end
                 local meta = {}
-                if e.a.journal then meta[#meta + 1] = "noted in my journal" end
+                if e.a.journal then meta[#meta + 1] = _("noted in my journal") end
                 if e.a.chapter then meta[#meta + 1] = e.a.chapter end
                 if e.a.pct then meta[#meta + 1] = e.a.pct .. " %" end
                 if #meta > 0 then part[#part + 1] = "_" .. table.concat(meta, " · ") .. "_" part[#part + 1] = "" end
             end
         end
         if #part > 0 then
-            lines[#lines + 1] = h .. "# " .. Q.SECTION_TITLE[sec]
+            lines[#lines + 1] = h .. "# " .. section_title(sec)
             lines[#lines + 1] = ""
             for _j, l in ipairs(part) do lines[#lines + 1] = l end
         end
@@ -1160,13 +1190,12 @@ local function writeExport(name, lines)
     local path = dir .. "/" .. name:gsub("[/\\:*?\"<>|]", "_") .. ".md"
     local f = io.open(path, "w")
     if not f then
-        UIManager:show(InfoMessage:new{ text = _("Could not write ") .. path })
+        UIManager:show(InfoMessage:new{ text = T(_("Could not write %1"), path) })
         return
     end
     f:write(table.concat(lines, "\n"))
     f:close()
-    UIManager:show(InfoMessage:new{ text = _("Exported:") .. "\n" .. path, timeout = 4 })
-    logger.info("Thoughtful Reading: exported", path)
+    UIManager:show(InfoMessage:new{ text = T(_("Exported:\n%1"), path), timeout = 4 })
 end
 
 function Plugin:export()
@@ -1195,7 +1224,7 @@ function Plugin:exportAll()
             local author = firstLine(b.entry.author)
             body[#body + 1] = "## " .. firstLine(b.entry.title) .. (author ~= "" and (" — " .. author) or "")
             body[#body + 1] = ""
-            body[#body + 1] = "_" .. (b.found and "no answers" or "book not found – answers not available") .. "_"
+            body[#body + 1] = "_" .. (b.found and _("no answers") or _("book not found – answers not available")) .. "_"
             body[#body + 1] = ""
         end
     end
@@ -1203,10 +1232,10 @@ function Plugin:exportAll()
         UIManager:show(InfoMessage:new{ text = _("No answers yet."), timeout = 2 })
         return
     end
-    local lines = { "# Thoughtful Reading – all books", "", "_" .. os.date("%Y-%m-%d") .. " · " .. n
-        .. (n == 1 and " book" or " books") .. "_", "" }
+    local lines = { "# " .. _("Thoughtful Reading – all books"), "", "_" .. os.date("%Y-%m-%d") .. " · "
+        .. (n == 1 and _("1 book") or T(_("%1 books"), n)) .. "_", "" }
     for _i, l in ipairs(body) do lines[#lines + 1] = l end
-    writeExport("Thoughtful Reading - all books", lines)
+    writeExport(_("Thoughtful Reading - all books"), lines)
 end
 
 -- ---- menu -------------------------------------------------------------------------------------
@@ -1221,10 +1250,10 @@ function Plugin:addToMainMenu(menu_items)
             if self:inReader() then
                 items[#items + 1] = { text_func = function()
                     local done, n = self:count()
-                    return _("Questions & answers") .. "  (" .. done .. "/" .. n .. ")"
+                    return T(_("Questions & answers  (%1/%2)"), done, n)
                 end, callback = function(tm) close(tm) self:showList() end }
             end
-            items[#items + 1] = { text_func = function() return _("All books") .. "  (" .. #self:allBooks() .. ")" end,
+            items[#items + 1] = { text_func = function() return T(_("All books  (%1)"), #self:allBooks()) end,
                 callback = function(tm) close(tm) self:showAllBooks() end }
             if self:inReader() then
                 items[#items + 1] = { text = _("Ask me now"), callback = function(tm) close(tm) self:askNow() end }
@@ -1236,7 +1265,7 @@ function Plugin:addToMainMenu(menu_items)
             end
             local freq = { text_func = function()
                 local f = settings().frequency
-                for _i, x in ipairs(FREQ) do if x.id == f then return _("Show questions: ") .. x.text end end
+                for _i, x in ipairs(FREQ) do if x.id == f then return T(_("Show questions: %1"), x.text) end end
                 return _("Show questions")
             end, sub_item_table = {} }
             for _i, x in ipairs(FREQ) do
@@ -1247,7 +1276,7 @@ function Plugin:addToMainMenu(menu_items)
                 }
             end
             items[#items + 1] = freq
-            local per = { text_func = function() return _("Questions per stop: ") .. settings().per_stop end,
+            local per = { text_func = function() return T(_("Questions per stop: %1"), settings().per_stop) end,
                 sub_item_table = {} }
             for n = 1, 3 do
                 per.sub_item_table[#per.sub_item_table + 1] = {
@@ -1263,8 +1292,8 @@ function Plugin:addToMainMenu(menu_items)
             items[#items + 1] = { text = _("Edit questions"), callback = function(tm) close(tm) self:showEditor() end }
             items[#items + 1] = { text = _("Question file"), keep_menu_open = true, callback = function()
                 self:questions()
-                UIManager:show(InfoMessage:new{ text = _("Questions from:") .. "\n" .. tostring(self._questions_path)
-                    .. "\n\n" .. _("\"Edit questions\" saves your own list to\nkoreader/settings/thoughtfulreading_questions.txt.\nYou can also change that file on a PC (one question per line).") })
+                UIManager:show(InfoMessage:new{ text = T(_("Questions from:\n%1\n\n\"Edit questions\" saves your own list to\nkoreader/settings/thoughtfulreading_questions.txt.\nYou can also change that file on a PC (one question per line)."),
+                    tostring(self._questions_path)) })
             end }
             return items
         end,
